@@ -4,6 +4,7 @@ import com.audit_service.dto.EmployeeAuditHistoryDTO;
 import com.audit_service.dto.FieldChangeDTO;
 import com.audit_service.model.AuditEvent;
 import com.audit_service.service.AuditService;
+import com.audit_service.service.EmployeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import java.util.List;
 public class AuditController {
 
     private final AuditService auditService;
+    private final EmployeeService employeeService;
 
     /**
      * Get all audit events
@@ -116,47 +118,9 @@ public class AuditController {
         return ResponseEntity.ok(changes);
     }
 
-    /**
-     * Get employee changes using JaVers in JSON format
-     * GET /api/audit/javers/employee/{employeeId}
-     */
-    @GetMapping("/javers/employee/{employeeId}")
-    public ResponseEntity<String> getEmployeeChangesJson(@PathVariable Long employeeId) {
-        String changes = auditService.getEmployeeChangesJson(employeeId);
-        return ResponseEntity.ok(changes);
+    @GetMapping("/employee/diff")
+    public ResponseEntity<String> getEmployeeJsonDiff(){
+        return ResponseEntity.ok(auditService.getEmployeeJsonDiff());
     }
 
-    /**
-     * Get snapshots of an employee using JaVers
-     * GET /api/audit/javers/employee/{employeeId}/snapshots
-     */
-    @GetMapping("/javers/employee/{employeeId}/snapshots")
-    public ResponseEntity<String> getEmployeeSnapshots(@PathVariable Long employeeId) {
-        String snapshots = auditService.getEntitySnapshotsAsJson(
-                com.audit_service.model.Employee.class, employeeId
-        );
-        return ResponseEntity.ok(snapshots);
-    }
-
-    /**
-     * Get all changes by author using JaVers
-     * GET /api/audit/javers/author/{author}
-     */
-    @GetMapping("/javers/author/{author}")
-    public ResponseEntity<String> getChangesByAuthor(@PathVariable String author) {
-        String changes = auditService.getChangesByAuthor(author);
-        return ResponseEntity.ok(changes);
-    }
-
-    /**
-     * Get all employee changes using JaVers
-     * GET /api/audit/javers/employees/all
-     */
-    @GetMapping("/javers/employees/all")
-    public ResponseEntity<String> getAllEmployeeChanges() {
-        String changes = auditService.getAllChangesForEntityType(
-                com.audit_service.model.Employee.class
-        );
-        return ResponseEntity.ok(changes);
-    }
 }

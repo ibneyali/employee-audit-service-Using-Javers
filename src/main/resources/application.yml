@@ -2,16 +2,12 @@ spring:
   application:
     name: audit-service(Javers)
 
-# H2 Database Configuration (fully compatible with JaVers)
+# HSQLDB Database Configuration
   datasource:
-    url: jdbc:h2:mem:auditdb;MODE=LEGACY;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
+    url: jdbc:hsqldb:mem:auditdb
+    driver-class-name: org.hsqldb.jdbc.JDBCDriver
     username: sa
     password:
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
 
 # Spring SQL initialization
   sql:
@@ -23,17 +19,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
-    database-platform: org.hibernate.dialect.H2Dialect
+    database-platform: org.hibernate.dialect.HSQLDialect
     show-sql: false
     properties:
       hibernate:
         format_sql: true
     open-in-view: false
-
-  # Disable JaVers auto-configuration (we use manual config)
-  autoconfigure:
-    exclude:
-      - org.javers.spring.boot.sql.JaversSqlAutoConfiguration
 
 # OpenAPI/Swagger Configuration
 springdoc:
@@ -46,14 +37,4 @@ springdoc:
 # Server Configuration
 server:
   port: 8080
-
-# JaVers Configuration
-javers:
-  auditableAspectEnabled: true
-  springDataAuditableRepositoryAspectEnabled: false
-  prettyPrint: true
-  typeSafeValues: false
-  sqlSchema: PUBLIC
-  newObjectSnapshot: true
-  packagesToScan: com.audit_service.model
 

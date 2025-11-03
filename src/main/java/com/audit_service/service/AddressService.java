@@ -3,7 +3,6 @@ package com.audit_service.service;
 import com.audit_service.model.Address;
 import com.audit_service.repository.AddressRepository;
 import lombok.RequiredArgsConstructor;
-import org.javers.core.Javers;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +16,6 @@ import java.util.Optional;
 public class AddressService {
 
     private final AddressRepository addressRepository;
-    private final Javers javers;
 
     public List<Address> getAllAddresses() {
         return (List<Address>) addressRepository.findAll();
@@ -45,9 +43,6 @@ public class AddressService {
 
         Address saved = addressRepository.save(address);
 
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         return saved;
     }
 
@@ -66,9 +61,6 @@ public class AddressService {
 
         Address saved = addressRepository.save(address);
 
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         return saved;
     }
 
@@ -78,9 +70,6 @@ public class AddressService {
                 .orElseThrow(() -> new RuntimeException("Address not found with id: " + id));
 
         String initiator = address.getUpdatedBy() != null ? address.getUpdatedBy() : "SYSTEM";
-
-        // Commit deletion to JaVers before deleting
-        javers.commitShallowDelete(initiator, address);
 
         addressRepository.delete(address);
     }

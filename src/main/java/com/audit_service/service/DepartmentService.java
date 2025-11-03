@@ -3,7 +3,6 @@ package com.audit_service.service;
 import com.audit_service.model.Department;
 import com.audit_service.repository.DepartmentRepository;
 import lombok.RequiredArgsConstructor;
-import org.javers.core.Javers;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +16,6 @@ import java.util.Optional;
 public class DepartmentService {
 
     private final DepartmentRepository departmentRepository;
-    private final Javers javers;
 
     public List<Department> getAllDepartments() {
         return (List<Department>) departmentRepository.findAll();
@@ -41,9 +39,6 @@ public class DepartmentService {
 
         Department saved = departmentRepository.save(department);
 
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         return saved;
     }
 
@@ -57,10 +52,6 @@ public class DepartmentService {
         department.setUpdatedBy(departmentDetails.getUpdatedBy() != null ? departmentDetails.getUpdatedBy() : "SYSTEM");
 
         Department saved = departmentRepository.save(department);
-
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         return saved;
     }
 
@@ -70,9 +61,6 @@ public class DepartmentService {
                 .orElseThrow(() -> new RuntimeException("Department not found with id: " + id));
 
         String initiator = department.getUpdatedBy() != null ? department.getUpdatedBy() : "SYSTEM";
-
-        // Commit deletion to JaVers before deleting
-        javers.commitShallowDelete(initiator, department);
 
         departmentRepository.delete(department);
     }

@@ -11,9 +11,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import org.javers.core.Javers;
-import org.javers.core.diff.Change;
-import org.javers.core.diff.changetype.ValueChange;
-import org.javers.repository.jql.QueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -292,50 +289,8 @@ public class AuditService {
             .collect(Collectors.toList());
     }
 
-    // ===== JaVers Integration Methods =====
-
     /**
-     * Get all changes for a specific entity using JaVers
-     */
-    public String getEntityChangesAsJson(Class<?> entityClass, Long entityId) {
-        List<Change> changes = javers.findChanges(
-                QueryBuilder.byInstanceId(entityId, entityClass).build()
-        );
-        return javers.getJsonConverter().toJson(changes);
-    }
-
-    /**
-     * Get value changes for a specific entity using JaVers
-     */
-    public List<Change> getEntityValueChanges(Class<?> entityClass, Long entityId) {
-        return javers.findChanges(
-                QueryBuilder.byInstanceId(entityId, entityClass).build()
-        );
-    }
-
-    /**
-     * Get changes for a specific entity as JSON string
-     */
-    public String getEmployeeChangesJson(Long employeeId) {
-        List<Change> changes = javers.findChanges(
-                QueryBuilder.byInstanceId(employeeId, com.audit_service.model.Employee.class).build()
-        );
-        return javers.getJsonConverter().toJson(changes);
-    }
-
-    /**
-     * Get snapshots of an entity over time using JaVers
-     */
-    public String getEntitySnapshotsAsJson(Class<?> entityClass, Long entityId) {
-        return javers.getJsonConverter().toJson(
-                javers.findSnapshots(
-                        QueryBuilder.byInstanceId(entityId, entityClass).build()
-                )
-        );
-    }
-
-    /**
-     * Compare two objects and get JSON diff using JaVers
+     * Compare two objects and get JSON diff using JaVers (no database persistence)
      */
     public String compareObjectsAsJson(Object oldObject, Object newObject) {
         return javers.getJsonConverter().toJson(
@@ -343,25 +298,78 @@ public class AuditService {
         );
     }
 
-    /**
-     * Get all changes for an entity type using JaVers
-     */
-    public String getAllChangesForEntityType(Class<?> entityClass) {
-        List<Change> changes = javers.findChanges(
-                QueryBuilder.byClass(entityClass).build()
-        );
-        return javers.getJsonConverter().toJson(changes);
-    }
+    public String getEmployeeJsonDiff() {
+        String json1 = """
+                {
+                  "id": 6,
+                  "firstName": "Ibney",
+                  "lastName": "Ali",
+                  "email": "ibney@gmail.com",
+                  "phone": "1234567",
+                  "department": {
+                    "id": 1,
+                    "addressLine1": "123 Main",
+                    "addressLine2": "Apt 4B",
+                    "addressLine3": null,
+                    "country": "United States",
+                    "postalCode": "10001",
+                    "createdTimestamp": "2025-11-03T00:44:18.667828",
+                    "updatedTimestamp": "2025-11-03T00:44:18.667828",
+                    "updatedBy": "SYSTEM"
+                  },
+                  "address": {
+                    "id": 1,
+                    "name": "Information",
+                    "createdTimestamp": "2025-11-03T00:44:18.665827",
+                    "updatedTimestamp": "2025-11-03T00:44:18.665827",
+                    "updatedBy": "SYSTEM"
+                  },
+                  "createdTimestamp": "2025-11-03T00:47:59.177571",
+                  "updatedTimestamp": "2025-11-03T00:48:37.68652",
+                  "updatedBy": "System",
+                  "version": 1
+                }""";
 
-    /**
-     * Get changes made by a specific author using JaVers
-     */
-    public String getChangesByAuthor(String author) {
-        List<Change> changes = javers.findChanges(
-                QueryBuilder.anyDomainObject()
-                        .byAuthor(author)
-                        .build()
-        );
-        return javers.getJsonConverter().toJson(changes);
+        String json2 = """
+                {
+                  "id": 6,
+                  "firstName": "Ibney",
+                  "lastName": "Ali",
+                  "email": "ibneyali@gmail.com",
+                  "phone": "1234567890",
+                  "department": {
+                    "id": 1,
+                    "addressLine1": "123 Main Street",
+                    "addressLine2": "Apt 4B",
+                    "addressLine3": null,
+                    "country": "United States",
+                    "postalCode": "10001",
+                    "createdTimestamp": "2025-11-03T00:44:18.667828",
+                    "updatedTimestamp": "2025-11-03T00:44:18.667828",
+                    "updatedBy": "SYSTEM"
+                  },
+                  "address": {
+                    "id": 1,
+                    "name": "Information Technology",
+                    "createdTimestamp": "2025-11-03T00:44:18.665827",
+                    "updatedTimestamp": "2025-11-03T00:44:18.665827",
+                    "updatedBy": "SYSTEM"
+                  },
+                  "createdTimestamp": "2025-11-03T00:47:59.177571",
+                  "updatedTimestamp": "2025-11-03T00:48:37.68652",
+                  "updatedBy": "System",
+                  "version": 1
+                }""";
+
+        try {
+            // Parse JSON strings into Map objects so JaVers can compare them
+            Map<String, Object> obj1 = objectMapper.readValue(json1, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> obj2 = objectMapper.readValue(json2, new TypeReference<Map<String, Object>>() {});
+
+            // Now compare the Map objects
+            return javers.getJsonConverter().toJson(javers.compare(obj1, obj2));
+        } catch (JsonProcessingException e) {
+            throw new AuditSerializationException("Failed to parse JSON for comparison", e);
+        }
     }
 }

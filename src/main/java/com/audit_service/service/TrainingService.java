@@ -3,7 +3,6 @@ package com.audit_service.service;
 import com.audit_service.model.Training;
 import com.audit_service.repository.TrainingRepository;
 import lombok.RequiredArgsConstructor;
-import org.javers.core.Javers;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +16,6 @@ import java.util.Optional;
 public class TrainingService {
 
     private final TrainingRepository trainingRepository;
-    private final Javers javers;
 
     public List<Training> getAllTrainings() {
         return (List<Training>) trainingRepository.findAll();
@@ -44,10 +42,6 @@ public class TrainingService {
         }
 
         Training saved = trainingRepository.save(training);
-
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         return saved;
     }
 
@@ -62,10 +56,6 @@ public class TrainingService {
         training.setUpdatedBy(trainingDetails.getUpdatedBy() != null ? trainingDetails.getUpdatedBy() : "SYSTEM");
 
         Training saved = trainingRepository.save(training);
-
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         return saved;
     }
 
@@ -75,10 +65,6 @@ public class TrainingService {
                 .orElseThrow(() -> new RuntimeException("Training not found with id: " + id));
 
         String initiator = training.getUpdatedBy() != null ? training.getUpdatedBy() : "SYSTEM";
-
-        // Commit deletion to JaVers before deleting
-        javers.commitShallowDelete(initiator, training);
-
         trainingRepository.delete(training);
     }
 }

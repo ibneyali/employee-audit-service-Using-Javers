@@ -4,10 +4,6 @@ import com.audit_service.exception.EmployeeNotFoundException;
 import com.audit_service.model.Employee;
 import com.audit_service.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
-import org.javers.core.Javers;
-import org.javers.core.diff.Change;
-import org.javers.core.diff.Diff;
-import org.javers.repository.jql.QueryBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +18,6 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final AuditService auditService;
-    private final Javers javers;
 
     public List<Employee> getAllEmployees() {
         return (List<Employee>) employeeRepository.findAll();
@@ -58,10 +53,6 @@ public class EmployeeService {
         }
 
         Employee saved = employeeRepository.save(employee);
-
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         // Also log to custom audit service
         auditService.logEmployeeCreated(saved, saved.getUpdatedBy());
 
@@ -99,10 +90,6 @@ public class EmployeeService {
         existing.setUpdatedBy(updatedEmployee.getUpdatedBy() != null ? updatedEmployee.getUpdatedBy() : "SYSTEM");
 
         Employee saved = employeeRepository.save(existing);
-
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         // Also log to custom audit service
         auditService.logEmployeeUpdated(oldState, saved, saved.getUpdatedBy());
 
@@ -134,17 +121,5 @@ public class EmployeeService {
         // Log audit event for deletion
         String initiator = employee.getUpdatedBy() != null ? employee.getUpdatedBy() : "SYSTEM";
         auditService.logEmployeeDeleted(employeeSnapshot, initiator);
-    }
-
-    public String getEmployeeChanges(Long employeeId) {
-        List<Change> changes = javers.findChanges(
-                QueryBuilder.byInstanceId(employeeId, Employee.class).build()
-        );
-        return javers.getJsonConverter().toJson(changes);
-    }
-
-    public String compareEmployees(Employee oldEmployee, Employee newEmployee) {
-        Diff diff = javers.compare(oldEmployee, newEmployee);
-        return javers.getJsonConverter().toJson(diff);
     }
 }

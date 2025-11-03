@@ -3,7 +3,6 @@ package com.audit_service.service;
 import com.audit_service.model.EmployeeTraining;
 import com.audit_service.repository.EmployeeTrainingRepository;
 import lombok.RequiredArgsConstructor;
-import org.javers.core.Javers;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +16,6 @@ import java.util.Optional;
 public class EmployeeTrainingService {
 
     private final EmployeeTrainingRepository employeeTrainingRepository;
-    private final Javers javers;
 
     public List<EmployeeTraining> getAllEmployeeTrainings() {
         return (List<EmployeeTraining>) employeeTrainingRepository.findAll();
@@ -52,10 +50,6 @@ public class EmployeeTrainingService {
         }
 
         EmployeeTraining saved = employeeTrainingRepository.save(employeeTraining);
-
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         return saved;
     }
 
@@ -69,10 +63,6 @@ public class EmployeeTrainingService {
         employeeTraining.setUpdatedBy(updatedBy != null ? updatedBy : "SYSTEM");
 
         EmployeeTraining saved = employeeTrainingRepository.save(employeeTraining);
-
-        // Commit to JaVers
-        javers.commit(saved.getUpdatedBy(), saved);
-
         return saved;
     }
 
@@ -82,10 +72,6 @@ public class EmployeeTrainingService {
                 .orElseThrow(() -> new RuntimeException("Employee Training not found with id: " + id));
 
         String initiator = employeeTraining.getUpdatedBy() != null ? employeeTraining.getUpdatedBy() : "SYSTEM";
-
-        // Commit deletion to JaVers before deleting
-        javers.commitShallowDelete(initiator, employeeTraining);
-
         employeeTrainingRepository.delete(employeeTraining);
     }
 }
