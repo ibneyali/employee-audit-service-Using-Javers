@@ -326,3 +326,39 @@ private List<SearchClientResponse> mapResults(
 
     return results;
 }
+
+
+fetchClientData(formData: any): Observable<ApiResponse<PageData<ClearingSystemData>>> {
+
+  if (!formData || typeof formData !== 'object') {
+    return throwError(() => new Error('Invalid form data provided'));
+  }
+
+  let params = new HttpParams();
+
+  // Send only clientName
+  if (formData.clientName?.trim()) {
+    params = params.set('clientName', formData.clientName.trim());
+  }
+
+  // Pagination
+  params = params.set('page', String(formData.page ?? 0));
+  params = params.set('size', String(formData.size ?? 10));
+
+  // Optional sorting
+  if (formData.sort) {
+    params = params.set('sort', formData.sort);
+  }
+
+  return this.http
+    .get<ApiResponse<PageData<ClearingSystemData>>>(
+      `${this.apiUrl}/client-details`,
+      { params }
+    )
+    .pipe(
+      catchError((error) => {
+        console.error('Error searching clients:', error);
+        return throwError(() => error);
+      })
+    );
+}
