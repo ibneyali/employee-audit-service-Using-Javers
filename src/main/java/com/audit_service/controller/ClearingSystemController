@@ -1,0 +1,328 @@
+1. Response DTO
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SearchClientResponse {
+
+    private Long clientId;
+
+    private String clientName;
+
+    private Long clientRoleId;
+
+    private String lcnAddr;
+
+    private String gfcId;
+}
+2. Repository Interface
+public interface ClientSearchRepository {
+
+    Page<SearchClientResponse> searchClients(
+            String clientName,
+            Pageable pageable);
+}
+3. Service Interface
+public interface ClientSearchService {
+
+    APIResponse<Page<SearchClientResponse>> searchClients(
+            String clientName,
+            Pageable pageable);
+}
+4. Service Implementation
+@Service
+@RequiredArgsConstructor
+@Slf4j
+@Transactional(readOnly = true)
+public class ClientSearchServiceImpl
+        implements ClientSearchService {
+
+    private final ClientSearchRepository clientSearchRepository;
+
+    @Override
+    public APIResponse<Page<SearchClientResponse>> searchClients(
+            String clientName,
+            Pageable pageable) {
+
+        String normalizedClientName =
+                normalizeString(clientName);
+
+        Page<SearchClientResponse> page =
+                clientSearchRepository.searchClients(
+                        normalizedClientName,
+                        pageable);
+
+        return APIResponse.<Page<SearchClientResponse>>builder()
+                .status("SUCCESS")
+                .message("Clients retrieved successfully")
+                .data(page)
+                .total(page.getNumberOfElements())
+                .build();
+    }
+
+    private String normalizeString(String value) {
+
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+
+        return value.trim();
+    }
+}
+5. Controller
+
+Exactly same style as your current controller.
+
+@GetMapping
+@PreAuthorize("@authz.canViewCS()")
+public ResponseEntity<APIResponse<Page<?>>> searchClients(
+
+        @RequestParam(required = false)
+        String clientName,
+
+        Pageable pageable,
+
+        Principal principal) {
+
+    log.info("START : searchClients");
+
+    String userId =
+            principal != null
+                    ? principal.getName()
+                    : null;
+
+    APIResponse<Page<SearchClientResponse>> response =
+            clientSearchService.searchClients(
+                    clientName,
+                    pageable);
+
+    log.info("END : searchClients");
+
+    return ResponseEntity.ok(response);
+}
+6. Repository Implementation
+@Repository
+@RequiredArgsConstructor
+public class ClientSearchRepositoryImpl
+        implements ClientSearchRepository {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Override
+    public Page<SearchClientResponse> searchClients(
+            String clientName,
+            Pageable pageable) {
+
+        long total =
+                executeCountQuery(clientName);
+
+        if (total == 0) {
+            return new PageImpl<>(
+                    Collections.emptyList(),
+                    pageable,
+                    0);
+        }
+
+        CriteriaQuery<Tuple> cq =
+                buildCriteriaQuery(clientName);
+
+        TypedQuery<Tuple> query =
+                entityManager.createQuery(cq);
+
+        if (pageable.isPaged()) {
+
+            query.setFirstResult(
+                    (int) pageable.getOffset());
+
+            query.setMaxResults(
+                    pageable.getPageSize());
+        }
+
+        List<Tuple> rows =
+                query.getResultList();
+
+        List<SearchClientResponse> results =
+                mapResults(rows);
+
+        return new PageImpl<>(
+                results,
+                pageable,
+                total);
+    }
+7. Criteria Query
+
+Equivalent of your SQL.
+
+private CriteriaQuery<Tuple> buildCriteriaQuery(
+        String clientName) {
+
+    CriteriaBuilder cb =
+            entityManager.getCriteriaBuilder();
+
+    CriteriaQuery<Tuple> cq =
+            cb.createTupleQuery();
+
+    Root<Clnt> c =
+            cq.from(Clnt.class);
+
+    Root<ClntRole> cr =
+            cq.from(ClntRole.class);
+
+    Root<ClrSys> cs =
+            cq.from(ClrSys.class);
+
+    Expression<String> lcnAddrExpr =
+            cb.concat(
+                    cb.concat(
+                            c.get("lcn"),
+                            "/"),
+                    c.get("addr"));
+
+    cq.multiselect(
+            c.get("clntId").alias("clientId"),
+            c.get("clntNm").alias("clientName"),
+            cr.get("clntRoleId").alias("clientRoleId"),
+            lcnAddrExpr.alias("lcnAddr"),
+            c.get("gfcId").alias("gfcId")
+    );
+
+    List<Predicate> predicates =
+            buildPredicates(
+                    cb,
+                    c,
+                    cr,
+                    cs,
+                    clientName);
+
+    cq.where(predicates.toArray(new Predicate[0]));
+
+    cq.orderBy(cb.asc(c.get("clntNm")));
+
+    return cq;
+}
+8. Predicates
+
+This represents:
+
+JOIN CLNT_ROLE
+ON CLNT.CLNT_ID = CLNT_ROLE.CLNT_ID
+
+ROLE_CD='CLRSYS'
+
+NOT EXISTS (
+ SELECT 1
+ FROM CLR_SYS
+ WHERE CLR_SYS.CLNT_ROLE_ID =
+       CLNT_ROLE.CLNT_ROLE_ID
+)
+private List<Predicate> buildPredicates(
+
+        CriteriaBuilder cb,
+        Root<Clnt> c,
+        Root<ClntRole> cr,
+        Root<ClrSys> cs,
+        String clientName) {
+
+    List<Predicate> predicates =
+            new ArrayList<>();
+
+    predicates.add(
+            cb.equal(
+                    c.get("clntId"),
+                    cr.get("clntId")));
+
+    predicates.add(
+            cb.equal(
+                    cr.get("clntRoleCd"),
+                    "CLRSYS"));
+
+    predicates.add(
+            cb.notEqual(
+                    cs.get("clntRoleId"),
+                    cr.get("clntRoleId")));
+
+    if (StringUtils.hasText(clientName)) {
+
+        predicates.add(
+                cb.like(
+                        cb.lower(
+                                c.get("clntNm")),
+                        "%"
+                                + clientName.toLowerCase()
+                                + "%"));
+    }
+
+    return predicates;
+}
+9. Count Query
+private long executeCountQuery(
+        String clientName) {
+
+    CriteriaBuilder cb =
+            entityManager.getCriteriaBuilder();
+
+    CriteriaQuery<Long> cq =
+            cb.createQuery(Long.class);
+
+    Root<Clnt> c =
+            cq.from(Clnt.class);
+
+    Root<ClntRole> cr =
+            cq.from(ClntRole.class);
+
+    Root<ClrSys> cs =
+            cq.from(ClrSys.class);
+
+    cq.select(cb.countDistinct(
+            cr.get("clntRoleId")));
+
+    List<Predicate> predicates =
+            buildPredicates(
+                    cb,
+                    c,
+                    cr,
+                    cs,
+                    clientName);
+
+    cq.where(predicates.toArray(
+            new Predicate[0]));
+
+    return entityManager
+            .createQuery(cq)
+            .getSingleResult();
+}
+10. Mapping
+private List<SearchClientResponse> mapResults(
+        List<Tuple> rows) {
+
+    List<SearchClientResponse> results =
+            new ArrayList<>();
+
+    for (Tuple row : rows) {
+
+        results.add(
+                SearchClientResponse.builder()
+                        .clientId(
+                                ((Number) row.get("clientId"))
+                                        .longValue())
+                        .clientName(
+                                row.get(
+                                        "clientName",
+                                        String.class))
+                        .clientRoleId(
+                                ((Number) row.get("clientRoleId"))
+                                        .longValue())
+                        .lcnAddr(
+                                row.get(
+                                        "lcnAddr",
+                                        String.class))
+                        .gfcId(
+                                row.get(
+                                        "gfcId",
+                                        String.class))
+                        .build());
+    }
+
+    return results;
+}
