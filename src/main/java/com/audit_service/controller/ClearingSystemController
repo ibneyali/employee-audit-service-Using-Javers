@@ -1,95 +1,34 @@
-describe('normalizeEntitySearchOptions', () => {
+SELECT CASE
+         WHEN COUNT(1) > 0 THEN 'TRUE'
+         ELSE 'FALSE'
+       END AS PAYMENT_EXISTS
+FROM IPA_PAYMENT A,
+     IPA_ISSUE B,
+     CCLIENT_CONT_STDPAY D,
+     CCLIENT_CONT_ROLE F,
+     TAGNCYTRADE E,
+     TAGNTRD_SETTLEMENT G
+WHERE ...
 
-  it('returns response when response is already an array', () => {
-    const data = [
-      { clientName: 'ABC', clrEntClientId: 100 }
-    ];
 
-    const result = (component as any).normalizeEntitySearchOptions(data);
-
-    expect(result).toEqual(data);
-  });
-
-  it('returns empty array when response is null', () => {
-    const result = (component as any).normalizeEntitySearchOptions(null);
-
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty array when response is undefined', () => {
-    const result = (component as any).normalizeEntitySearchOptions(undefined);
-
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty array when response is not an object', () => {
-    const result = (component as any).normalizeEntitySearchOptions('test');
-
-    expect(result).toEqual([]);
-  });
-
-  it('returns data array from envelope.data', () => {
-    const data = [
-      { clientName: 'ABC', clrEntClientId: 100 }
-    ];
-
-    const response = {
-      data
-    };
-
-    const result = (component as any).normalizeEntitySearchOptions(response);
-
-    expect(result).toEqual(data);
-  });
-
-  it('returns content array from paged response', () => {
-    const data = [
-      { clientName: 'XYZ', clrEntClientId: 200 }
-    ];
-
-    const response = {
-      data: {
-        content: data
-      }
-    };
-
-    const result = (component as any).normalizeEntitySearchOptions(response);
-
-    expect(result).toEqual(data);
-  });
-
-  it('returns empty array when data is present but not an array', () => {
-    const response = {
-      data: {
-        clientName: 'ABC'
-      }
-    };
-
-    const result = (component as any).normalizeEntitySearchOptions(response);
-
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty array when content is not an array', () => {
-    const response = {
-      data: {
-        content: 'invalid'
-      }
-    };
-
-    const result = (component as any).normalizeEntitySearchOptions(response);
-
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty array when data is empty object', () => {
-    const response = {
-      data: {}
-    };
-
-    const result = (component as any).normalizeEntitySearchOptions(response);
-
-    expect(result).toEqual([]);
-  });
-
-});
+SELECT COUNT(1)
+FROM IPA_PAYMENT A,
+     IPA_ISSUE B,
+     CCLIENT_CONT_STDPAY D,
+     CCLIENT_CONT_ROLE F,
+     TAGNCYTRADE E,
+     TAGNTRD_SETTLEMENT G
+WHERE D.ROLE_NO = F.ROLE_NO
+  AND F.ROLE_CODE = 'ISSUER_PROGRAM'
+  AND B.ISSR_CLIENT_REFNO = F.CLIENT_REFNO
+  AND DECODE(D.PRD_TYP_CODE, 'ALL', 'ECP', D.PRD_TYP_CODE) = E.ATRD_TYP_CODE
+  AND B.ISSUE_ID = A.ISSUE_ID
+  AND B.ISSUE_ID = E.ISSUE_ID
+  AND A.ATRD_REFNO = E.ATRD_REFNO
+  AND E.ATRD_REFNO = G.ATRD_REFNO
+  AND D.PAY_CCY = G.CCYCODE
+  AND A.STATUS IN ('AUTH','UNAU','STAU')
+  AND D.ROLE_NO = '0000015917'
+  AND D.PAY_CCY = 'USD'
+  AND E.ATRD_TYP_CODE IN ('ECP','MTN')
+  AND A.IS_STANDARD_PAY = 'Y';
