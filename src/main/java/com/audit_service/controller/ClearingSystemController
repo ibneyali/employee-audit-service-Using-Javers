@@ -32,3 +32,35 @@ WHERE D.ROLE_NO = F.ROLE_NO
   AND D.PAY_CCY = 'USD'
   AND E.ATRD_TYP_CODE IN ('ECP','MTN')
   AND A.IS_STANDARD_PAY = 'Y';
+
+
+
+   @Query(value = """
+        SELECT CASE
+                 WHEN COUNT(1) > 0 THEN 1
+                 ELSE 0
+               END
+        FROM ATISADMIN.IPA_PAYMENT A,
+             ATISADMIN.IPA_ISSUE B,
+             STATICDATA.CLNT_STL_INS D,
+             ATISADMIN.TAGNCYTRADE E,
+             STATICDATA.CLNT_ROLE F,
+             ATISADMIN.TAGNTRD_SETTLEMENT G
+        WHERE D.CLNT_CNTCT_ROLE_ID = F.CLNT_ROLE_ID
+          AND F.CLNT_ROLE_CD = 'ISSUER_PROGRAM'
+          AND B.ISSR_CLIENT_REFNO = F.CLNT_ID
+          AND D.PRDCT_TYP_CD = E.ATRD_TYP_CODE
+          AND B.ISSUE_ID = A.ISSUE_ID
+          AND B.ISSUE_ID = E.ISSUE_ID
+          AND E.ATRD_REFNO = G.ATRD_REFNO
+          AND A.ATRD_REFNO = E.ATRD_REFNO
+          AND D.PYMT_CCY_CD = G.CCYCODE
+          AND A.STATUS IN ('AUTH','UNAU','STAU')
+          AND D.CLNT_CNTCT_ROLE_ID = :roleNo
+          AND D.PYMT_CCY_CD = :currency
+          AND D.PRDCT_TYP_CD = :productType
+          AND A.IS_STANDARD_PAY = 'Y'
+        """, nativeQuery = true)
+    Integer validateExistingPayment(@Param("roleNo") String roleNo,
+                                    @Param("currency") String currency,
+                                    @Param("productType") String productType);
