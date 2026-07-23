@@ -1,55 +1,73 @@
+public static final String UPDATE_STANDARD_PAYMENT = """
+    UPDATE IPA_PAYMENT
+    SET
+        IS_EBA = 'N',
+        IS_TARGET = 'N',
+        IS_FEDWIRE = 'N',
+        IS_MIFT_COMPLETE = 'N',
 
-Query 1 - Validate for ECP (ALL → ECP / MTN → ECP)
-SELECT CASE
-         WHEN COUNT(1) > 0 THEN 'TRUE'
-         ELSE 'FALSE'
-       END AS PAYMENT_EXISTS
-FROM ATISADMIN.IPA_PAYMENT A,
-     ATISADMIN.IPA_ISSUE B,
-     STATICDATA.CLNT_STL_INS D,
-     ATISADMIN.TAGNCYTRADE E,
-     STATICDATA.CLNT_ROLE F,
-     ATISADMIN.TAGNTRD_SETTLEMENT G
-WHERE D.CLNT_CNTCT_ROLE_ID = F.CLNT_ROLE_ID
-  AND F.CLNT_ROLE_CD = 'ISSUER_PROGRAM'
-  AND B.ISSR_CLIENT_REFNO = F.CLNT_ID
-  AND DECODE(D.PRDCT_TYP_CD, 'ALL', 'ECP', D.PRDCT_TYP_CD) = E.ATRD_TYP_CODE
-  AND B.ISSUE_ID = A.ISSUE_ID
-  AND B.ISSUE_ID = E.ISSUE_ID
-  AND E.ATRD_REFNO = G.ATRD_REFNO
-  AND A.ATRD_REFNO = E.ATRD_REFNO
-  AND D.PYMT_CCY_CD = G.CCYCODE
-  AND A.STATUS IN ('AUTH', 'UNAU', 'STAU')
-  AND D.CLNT_CNTCT_ROLE_ID = :roleNo
-  AND D.PYMT_CCY_CD = :currency
-  AND E.ATRD_TYP_CODE IN ('ECP', 'MTN')
-  AND A.IS_STANDARD_PAY = 'Y';
+        T56_INT_BANK = NULL,
+        T56_INT_SORTCODE = NULL,
+        T56_INT_ACCOUNT = NULL,
+        T56_INT_SWIFT = NULL,
+        T56_INT_ABA = NULL,
+
+        T57_BENBANK = NULL,
+        T57_BENBANK_SORTCODE = NULL,
+        T57_BENBANK_ACCOUNT = NULL,
+        T57_BENBANK_SWIFT = NULL,
+        T57_BENBANK_ABA = NULL,
+
+        T58_59_BENF_NAME = NULL,
+        T58_59_BENF_ADDR = NULL,
+        T58_59_BENF_ACCOUNT = NULL,
+        T58_59_BENF_SWIFT = NULL,
+        T58_59_BENF_ABA = NULL,
+
+        T72 = NULL,
+        T72_INFO = NULL,
+
+        T50_ACCOUNT = NULL,
+        T50_ADDR1 = NULL,
+        T50_ADDR2 = NULL,
+        T50_ADDR3 = NULL,
+        T50_ADDR4 = NULL,
+
+        T52A_SWIFT = NULL,
+        T70_REMIT_DETAILS = NULL,
+        T71A_CHARGES_BEARER = NULL,
+
+        CHECKER = NULL,
+        CHECKER_DT = NULL,
+
+        PART_APPROVED_BY = NULL,
+        PART_APPROVED_DT = NULL,
+
+        STATUS = DECODE(STATUS, 'AUTH', 'UNAU', STATUS),
+        ACCESS_STAMP = SYSDATE
+
+    WHERE ATRD_REFNO = :tradeRefNo
+      AND ISSUE_ID = :issueId
+    """;
 
 
+    @Modifying
+@Transactional
+@Query(value = IpaPayment.UPDATE_STANDARD_PAYMENT, nativeQuery = true)
+int updateStandardPayment(@Param("tradeRefNo") String tradeRefNo,
+                          @Param("issueId") String issueId);
 
+                          @Transactional
+@Override
+public void updatePaymentStatus(String tradeRefNo, String issueId) {
 
-Query 2 - Validate for MTN (ALL → MTN / ECP → MTN)
-  SELECT CASE
-         WHEN COUNT(1) > 0 THEN 'TRUE'
-         ELSE 'FALSE'
-       END AS PAYMENT_EXISTS
-FROM ATISADMIN.IPA_PAYMENT A,
-     ATISADMIN.IPA_ISSUE B,
-     STATICDATA.CLNT_STL_INS D,
-     ATISADMIN.TAGNCYTRADE E,
-     STATICDATA.CLNT_ROLE F,
-     ATISADMIN.TAGNTRD_SETTLEMENT G
-WHERE D.CLNT_CNTCT_ROLE_ID = F.CLNT_ROLE_ID
-  AND F.CLNT_ROLE_CD = 'ISSUER_PROGRAM'
-  AND B.ISSR_CLIENT_REFNO = F.CLNT_ID
-  AND D.PRDCT_TYP_CD = E.ATRD_TYP_CODE
-  AND B.ISSUE_ID = A.ISSUE_ID
-  AND B.ISSUE_ID = E.ISSUE_ID
-  AND E.ATRD_REFNO = G.ATRD_REFNO
-  AND A.ATRD_REFNO = E.ATRD_REFNO
-  AND D.PYMT_CCY_CD = G.CCYCODE
-  AND A.STATUS IN ('AUTH', 'UNAU', 'STAU')
-  AND D.CLNT_CNTCT_ROLE_ID = :roleNo
-  AND D.PYMT_CCY_CD = :currency
-  AND D.PRDCT_TYP_CD = 'ECP'
-  AND A.IS_STANDARD_PAY = 'Y';
+    int rows = ipaPaymentRepository.updateStandardPayment(tradeRefNo, issueId);
+
+    if (rows == 0) {
+        throw new IpaPaymentException(ExceptionMessageEnum.PMT_TRADE_REF_NOT_FOUND);
+    }
+
+    ipaPaymentReleaseAuditService.insertIpaPaymentAuditTrail(
+            tradeRefNo,
+            "IPA Payment updated due to Standard Payment modification");
+}
