@@ -1,79 +1,161 @@
-Please update only the **Client Name dropdown UI in the Clearing System Create New page**.
+Please fix the Client Name selection behavior in the **Clearing System Create New** screen.
 
-### Reference
+### Issue
 
-The **Standard Payment → Client Name** dropdown already has the required behavior.
+The Client Name dropdown can contain multiple records with the **same Client Name**, but they are different client records with different IDs and different LCN/ADDR and GFC ID values.
 
-In Standard Payment, each dropdown option displays:
+Example from the API response:
 
-**Client Name + LCN/ADDR**
+```text
+Record 1
+clientId: 58506
+clientRoleId: 47900
+clientName: "ABBY MARCOS SHINN"
+lcnAddr: "5019951/001"
+gfcid: "1031796403"
 
-For example:
+Record 2
+clientId: 53745
+clientRoleId: 47901
+clientName: "ABBY MARCOS SHINN"
+lcnAddr: "5011351/001"
+gfcid: null
+```
 
-* `Client` — `5035599/001`
-* `Loganathan` — `5035818/001`
-* `QAAutoTest Client` — `5035761/001`
-* `cc auth multi role` — `5035940/001`
+Both records have the same `clientName`, but they are different records.
 
-### Required Change
+### Current Behavior
 
-Implement the same UI display format in the **Clearing System → Create New → Client Name** dropdown.
+1. Select the first `ABBY MARCOS SHINN`.
+2. LCN/ADDR is correctly populated as:
+   `5019951/001`
+3. GFC ID is correctly populated as:
+   `1031796403`
 
-Currently, Clearing System displays only the Client Name.
+Then:
 
-Change it so that each dropdown option displays:
+4. Select the second `ABBY MARCOS SHINN`.
+5. The Client Name changes/selection happens, but the dependent fields are not correctly updated for the second record.
+6. The previous LCN/ADDR and GFC ID values can remain populated.
 
-**`Client Name - LCN/ADDR`**
+This issue occurs specifically when there are **duplicate Client Names**.
 
-For example:
+When the Client Name is unique, the existing functionality works correctly.
 
-`cc auth multi role - 5035940/001`
+### Expected Behavior
+
+The selected Client record must always be identified using its **unique identifier**, NOT only by `clientName`.
+
+For the example above:
+
+#### Selecting Record 1
+
+```text
+Client Name: ABBY MARCOS SHINN
+LCN/ADDR:    5019951/001
+GFC ID:      1031796403
+```
+
+#### Selecting Record 2
+
+```text
+Client Name: ABBY MARCOS SHINN
+LCN/ADDR:    5011351/001
+GFC ID:      null/empty
+```
+
+When switching from Record 1 to Record 2, the UI must update the dependent fields according to Record 2.
 
 ### Important
 
-The existing Clearing System functionality is already working correctly.
+Please inspect the existing Clearing System Client Name dropdown implementation.
 
-The selected client currently returns/uses the correct internal value/ID, so **do not change the existing selection, ID mapping, API request, or backend functionality**.
+Do NOT identify the selected record using only:
 
-Only change the **display/label of the dropdown options**.
+```typescript
+clientName
+```
 
-### Implementation Instructions
+because Client Name is not unique.
 
-1. First inspect how the **Standard Payment Client Name dropdown** is implemented.
-2. Identify how Standard Payment formats the dropdown option label to show:
+Use the existing unique fields from the API response, preferably the combination of:
 
-   * Client Name
-   * LCN/ADDR
-3. Inspect the existing Clearing System Client Name dropdown implementation.
-4. Apply the same display/label formatting pattern to Clearing System.
-5. Use the existing Clearing System API response fields, especially:
+```text
+clientId
+clientRoleId
+```
 
-   * `clientName`
-   * `lcnAddr`
-   * existing client ID / role ID fields
-6. Do not create a new API.
-7. Do not modify the backend.
-8. Do not modify the existing client selection logic.
-9. Do not change how the selected client ID/value is submitted.
-10. Do not affect the existing LCN/ADDR auto-population, GFC ID, Mnemonic, or other fields.
+or whatever unique value is already being used by the existing dropdown implementation.
 
-### Expected Result
+### What to Check
 
-Before:
+Please trace the complete flow:
 
-`cc auth multi role`
+```text
+Client Name dropdown
+        ↓
+selected option/value
+        ↓
+selection/change handler
+        ↓
+client lookup
+        ↓
+LCN/ADDR population
+        ↓
+GFC ID population
+        ↓
+Mnemonic / other dependent fields
+```
 
-After:
+Find where the selected client is being matched against the API response.
 
-`cc auth multi role - 5035940/001`
+Look specifically for logic similar to:
 
-When the user selects the option, the existing internal value/ID selection must continue working exactly as it does now.
+```typescript
+clients.find(client => client.clientName === selectedValue)
+```
 
-Please inspect the Standard Payment implementation and reuse the same approach/pattern rather than creating a different implementation.
+or:
 
-After making the change, tell me:
+```typescript
+if (client.clientName === selectedClientName)
+```
 
-* Which Clearing System file/component was changed.
-* Which Standard Payment component was used as the reference.
-* What exact UI mapping was added/changed.
-* Confirm that the selected client ID/value and existing functionality were not changed.
+If such logic exists, change it to use the unique client identifier/value instead.
+
+### Also Check Dropdown Option Value
+
+Make sure each dropdown option has a unique internal value.
+
+The display can remain:
+
+```text
+ABBY MARCOS SHINN 5019951/001
+ABBY MARCOS SHINN 5011351/001
+```
+
+but the internal value should uniquely identify the record, for example:
+
+```text
+clientId + clientRoleId
+```
+
+Do NOT use the displayed Client Name as the unique value.
+
+### Regression Requirements
+
+Do not break the existing functionality for unique Client Names.
+
+Verify all scenarios:
+
+1. Unique Client Name → LCN/ADDR and GFC ID populate correctly.
+2. Duplicate Client Name → selecting first record populates its values.
+3. Duplicate Client Name → selecting second record updates to the second record's values.
+4. Switching from second record back to first record works correctly.
+5. If the selected record has `gfcid: null`, the previous GFC ID must be cleared instead of remaining from the previous selection.
+6. If LCN/ADDR changes between duplicate records, the displayed LCN/ADDR must also change.
+7. Existing client ID/client role ID submission behavior must remain unchanged.
+8. Do not modify backend/API logic.
+9. Do not change unrelated Clearing System functionality.
+
+Please identify the exact place where Client Name is incorrectly being used as the unique identifier and make the smallest possible UI/component change to fix duplicate Client Name selection.
