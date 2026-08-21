@@ -1,174 +1,137 @@
-I need you to fix a bug in the Clearing System Create UI.
+I have a bug in the Clearing System Create New screen.
 
-IMPORTANT:
-- First inspect the existing implementation in:
-  1. clearing-system.component.ts
-  2. clearing-system-create-mapper.ts
-  3. clearing-system.service.ts
-  4. Any related interfaces/types used by ClientSearchItem and the client typeahead.
-- Do NOT rewrite unrelated code.
-- Do NOT change the backend/API contract.
-- Preserve the existing behavior for clients whose names are unique.
-- Make the smallest clean TypeScript/Angular change required.
-
-BUG:
-The Client Name typeahead can contain duplicate client names.
+Problem:
+The Client Name dropdown can contain duplicate client names with different LCN/ADDR values.
 
 Example:
 
-Client Name:        LCN/ADDR:
-ABBY MARCOS SHINN   5019951/001
-ABBY MARCOS SHINN   5011351/001
+1. Client Name: ABBY MARCOS SHINN
+   LCN/ADDR: 5019951/001
+   GFC ID: 1031796403
 
-When I select the first record, LCN/ADDR and GFC ID are populated correctly.
+2. Client Name: ABBY MARCOS SHINN
+   LCN/ADDR: 5011351/001
+   GFC ID: <different value>
 
-When I then select the second record, the UI still shows the LCN/ADDR and GFC ID of the first record.
+When I select the first option, LCN/ADDR and GFC ID populate correctly.
 
-The issue happens ONLY when client names are duplicated.
+However, when I select the second option, the UI still populates the first record's LCN/ADDR and GFC ID.
 
-ROOT CAUSE:
-The current code uses clientName as the matching/cache/lookup key in some places. Since clientName is not unique, the first matching client is returned.
+Important:
+Do NOT solve this by adding more fallback .find() logic based only on clientName.
 
-REQUIRED SOLUTION:
-Use LCN/ADDR as the primary unique identifier for the selected client record.
+The root problem appears to be that the selected dropdown/typeahead value is losing the unique LCN/ADDR and eventually the component receives only the client name string. Since both client names are identical, code such as:
 
-The selected typeahead option already contains the rich option data, including lcnAddr. Use that value instead of relying only on clientName.
+this.clientSearchOptions.find(client =>
+    client.clientName?.trim() === clientName
+)
 
-Required behavior:
+always returns the first record.
 
-1. When a typeahead option is selected, extract:
-   - clientName
-   - lcnAddr
+I need you to trace the complete selection flow and fix the actual source of the problem.
 
-2. Use lcnAddr as the primary lookup/cache/matching key.
+Files involved include:
+- clearing-system.component.ts
+- clearing-system-create-mapper.ts
+- clearing-system.service.ts
+- shared.module.ts
+- the shared typeahead/dropdown component used by the Client Name field
+- any configuration/schema/mapping that defines the Client Name dropdown options
 
-3. Do NOT use clientName alone to identify the selected record.
+Current code already contains methods such as:
+- applyCreateClientSelection()
+- resolveSelectedClientName()
+- resolveSelectedClientLcnAddr()
+- loadCreateClientDetailsFromSearch()
+- resolveCreateClientDetailsRow()
+- findCreateClientBySelectedValue()
+- normalizeCreateClientLookupKey()
+- normalizeCreateClientLcnAddrKey()
 
-4. When finding a ClientSearchItem from clientSearchOptions:
-   - First match by lcnAddr.
-   - Only fall back to clientName if lcnAddr is unavailable.
+Do NOT simply add another lookup fallback.
 
-5. When processing the API response:
-   - First find the matching record by lcnAddr.
-   - Only fall back to clientName if lcnAddr is unavailable.
+Required solution:
 
-6. If there is any cache/map currently keyed by clientName, change the key to lcnAddr (or use a normalized lcnAddr key).
+1. Find where clientSearchOptions are converted into dropdown/typeahead options.
 
-7. Preserve the existing identifier-based fallback logic such as clrEntClientId/clntRoleId if it is already required elsewhere.
+2. Ensure each dropdown option preserves a unique identifier.
+   Prefer LCN/ADDR as the unique identifier because duplicate client names are valid.
 
-8. Do not remove the existing inputFormatter, viewFields, optionFields, emitPrimitiveValue, emitSearchTerm, or allowEmptyValue behavior unless absolutely necessary.
+3. The selected value emitted by the dropdown must preserve the selected option's LCN/ADDR.
 
-9. Do not change the UI appearance.
+4. The selection should effectively contain enough information to distinguish:
 
-10. Do not change the API request unnecessarily.
+   {
+       clientName: "ABBY MARCOS SHINN",
+       lcnAddr: "5019951/001"
+   }
 
-IMPORTANT IMPLEMENTATION DETAIL:
+   from:
 
-There is already logic similar to:
+   {
+       clientName: "ABBY MARCOS SHINN",
+       lcnAddr: "5011351/001"
+   }
 
-private resolveSelectedClientName(selectedValue: unknown): string
+5. Update the Client Name dropdown/typeahead mapping so that selecting the second row emits the second row's LCN/ADDR instead of only emitting the duplicate clientName.
 
-Add/use a corresponding helper to safely extract LCN/ADDR from the selected rich typeahead option, for example:
+6. Update ClearingSystemComponent only where necessary to consume this unique selection.
 
-private resolveSelectedClientLcnAddr(selectedValue: unknown): string
+7. When loading Client Details, always match by LCN/ADDR first.
 
-It should safely handle:
-- null/undefined
-- string values
-- object values
-- wrapped object values if the shared typeahead returns an object such as { item: ... }
+8. Client name should only be used for display, NOT as the unique identifier.
 
-The helper should return an empty string when lcnAddr cannot be resolved.
+9. Remove or avoid any code path where:
+   
+   clientSearchOptions.find(client => client.clientName === clientName)
 
-Also inspect the existing:
+   can incorrectly select the first duplicate record.
 
-findCreateClientBySelectedValue(...)
+10. Do not change backend APIs, database queries, or unrelated functionality unless absolutely necessary.
 
-If it currently does something like:
+11. Preserve existing behavior for clients whose names are unique.
 
-const matchedByName = this.clientSearchOptions.find(
-  client => client.clientName?.trim() === clientName
-);
+12. Preserve the existing UI display:
+    Client Name should still display "ABBY MARCOS SHINN",
+    while LCN/ADDR and GFC ID should come from the exact selected row.
 
-that logic must NOT be the first matching strategy because duplicate names cause the bug.
+13. Check whether the shared typeahead component emits:
+    - the raw string,
+    - option.value,
+    - the complete option object,
+    - or an { item: ... } wrapper.
 
-Change it so that:
+   Adapt the fix to the actual emitted shape instead of assuming it.
 
-1. selected lcnAddr is extracted from selectedValue.
-2. clientSearchOptions is searched by lcnAddr first.
-3. clientName is used only as fallback.
-4. Existing identifier matching remains as a final fallback if currently present.
+14. Also check the HTML/template/configuration for the Client Name field. The fix may need to be made where the dropdown's option value/display value is configured, not only in clearing-system.component.ts.
 
-Also inspect the method that resolves the API response record, such as:
+15. After making the change, explain exactly:
+    - which file was changed
+    - which method/configuration was changed
+    - what the selected value looks like for the first record
+    - what the selected value looks like for the second record
+    - why duplicate names no longer cause the first record to be selected.
 
-resolveCreateClientDetailsRow(...)
+Expected behavior:
 
-If it currently does:
+Selecting:
 
-rows.find(row => row.clientName?.trim() === clientName)
+ABBY MARCOS SHINN | 5019951/001
 
-change the matching priority to:
+must populate:
 
-1. lcnAddr
-2. clientName fallback
-3. existing final fallback if applicable
+LCN/ADDR = 5019951/001
+GFC ID = GFC ID belonging to 5019951/001
 
-Also inspect any method that loads client details, such as:
+Selecting:
 
-loadCreateClientDetailsFromSearch(...)
+ABBY MARCOS SHINN | 5011351/001
 
-Pass the selected lcnAddr through the lookup flow so the correct duplicate-name record can be resolved.
+must populate:
 
-If there is a cache such as:
+LCN/ADDR = 5011351/001
+GFC ID = GFC ID belonging to 5011351/001
 
-createClientDetailsAutoFillCache
+The second selection MUST NOT populate 5019951/001.
 
-and it currently uses clientName as the key, change it so duplicate clients do not share the same cache entry.
-
-For example:
-
-5019951/001 -> one cache entry
-5011351/001 -> another cache entry
-
-Do NOT assume that clientName is unique.
-
-EXPECTED RESULT:
-
-When selecting:
-
-ABBY MARCOS SHINN / 5019951/001
-
-the UI must populate the LCN/ADDR and GFC ID belonging to 5019951/001.
-
-Then when selecting:
-
-ABBY MARCOS SHINN / 5011351/001
-
-the UI must update to the LCN/ADDR and GFC ID belonging to 5011351/001.
-
-It must NOT retain the values from the first selection.
-
-Also test the reverse order:
-
-1. Select 5011351/001
-2. Select 5019951/001
-
-Both must update correctly.
-
-Also test a unique client name to ensure the existing behavior still works.
-
-Before making changes:
-- Search the entire clearing-system component for all usages of clientName, createClientDetailsAutoFillCache, createClientDetailsLookupKey, findCreateClientBySelectedValue, resolveSelectedClientName, resolveSelectedOptionIdentifier, and resolveCreateClientDetailsRow.
-- Identify every place where clientName is incorrectly being treated as a unique identifier.
-- Then make the minimum changes required.
-
-After making the changes:
-1. Show me the exact files changed.
-2. Show me the exact code changes/diff.
-3. Explain why the original code returned the first duplicate client.
-4. Explain why the new implementation correctly distinguishes duplicate client names using LCN/ADDR.
-5. Check for TypeScript compilation/type errors.
-6. Do not modify unrelated files.
-
-
-Do not refactor the component. Keep the existing implementation and make only the minimal changes required to use LCN/ADDR as the unique selection/matching key for duplicate client names.
+Before modifying code, inspect the actual Client Name dropdown/typeahead option mapping and selection event flow. Then make the smallest correct change at the source where the unique LCN/ADDR is being lost.
