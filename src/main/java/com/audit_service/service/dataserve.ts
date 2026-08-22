@@ -1,182 +1,60 @@
-private loadCreateClientDetailsFromSearch(
-  clientName: string,
-  selectedClientId: string | number
+private applyCreateClientSelection(
+  selectedValue: unknown
 ): void {
 
-  const lookupKey =
-    this.normalizeCreateClientLookupKey(
-      String(selectedClientId)
-    );
-
-  this.createClientDetailsLookupSubscription?.unsubscribe();
-
-  this.createClientDetailsLookupKey = lookupKey;
-
-  /*
-   * IMPORTANT:
-   * When a client is selected, use clientId as the primary lookup.
-   *
-   * Do NOT use clientName when clientId is available because
-   * clientName is not unique.
-   */
-  const clientId =
-    selectedClientId !== null &&
-    selectedClientId !== undefined &&
-    String(selectedClientId).trim() !== ''
-      ? selectedClientId
-      : null;
-
-  const requestParams: {
-    clientName?: string;
-    clientId?: string | number;
-    page: number;
-    size: number;
-  } = {
-    page: 0,
-    size: 20
-  };
-
-  /*
-   * Prefer clientId.
-   * Only use clientName when clientId is unavailable.
-   */
-  if (clientId !== null) {
-    requestParams.clientId = clientId;
-  } else if (clientName?.trim()) {
-    requestParams.clientName = clientName.trim();
+  if (
+    selectedValue === null ||
+    selectedValue === undefined ||
+    selectedValue === ''
+  ) {
+    return;
   }
 
+  const selectedClientId =
+    this.resolveSelectedClientId(selectedValue);
+
+  this.selectedCreateClientId =
+    selectedClientId;
+
   console.log(
-    'Fetching client details with params:',
-    requestParams
+    'Selected client ID:',
+    selectedClientId
   );
 
-  const lookupSubscription =
-    this.clearingSystemService
-      .fetchClientDetails(requestParams)
-      .subscribe({
+  if (selectedClientId == null) {
+    console.warn(
+      'Unable to resolve selected client ID:',
+      selectedValue
+    );
+    return;
+  }
 
-        next: (
-          response:
-            ApiResponse<PagedData<ClearingSystemData>>
-        ) => {
+  const selectedClient =
+    this.findCreateClientBySelectedValue(
+      selectedValue
+    );
 
-          const rows =
-            response?.data?.content ?? [];
+  console.log(
+    'Selected client:',
+    selectedClient
+  );
 
-          console.log(
-            'Client details API rows:',
-            rows
-          );
+  /*
+   * If the selected client is already available in the
+   * cached options, we can get its name immediately.
+   */
+  const clientName =
+    selectedClient?.clientName?.trim() ?? '';
 
-          console.log(
-            'Client details row count:',
-            rows.length
-          );
-
-          console.log(
-            'Selected client ID:',
-            selectedClientId
-          );
-
-          /*
-           * If clientId was used, find the exact matching
-           * client in the response.
-           */
-          let selectedClient: ClearingSystemData | null = null;
-
-          if (clientId !== null) {
-
-            const selectedIdKey =
-              String(clientId);
-
-            selectedClient =
-              rows.find(row =>
-                String(
-                  row.clrEntClientId ??
-                  row.clientId ??
-                  ''
-                ) === selectedIdKey
-              ) ?? null;
-
-          } else {
-
-            /*
-             * No clientId available.
-             * Since the API was called using clientName,
-             * use the first matching result.
-             */
-            selectedClient =
-              rows[0] ?? null;
-          }
-
-          console.log(
-            'Matched client details row:',
-            selectedClient
-          );
-
-          if (!selectedClient) {
-
-            console.warn(
-              'No client details found for selected client:',
-              {
-                clientId,
-                clientName
-              }
-            );
-
-            return;
-          }
-
-          const resolvedClientName =
-            selectedClient.clientName?.trim()
-              ?? clientName?.trim()
-              ?? '';
-
-          const lcnAddr =
-            selectedClient.lcnAddr?.trim() ?? '';
-
-          const gfcid =
-            selectedClient.gfcid != null
-              ? String(selectedClient.gfcid)
-              : '';
-
-          console.log(
-            'Updating Client Name:',
-            resolvedClientName
-          );
-
-          console.log(
-            'Updating LCN/ADDR:',
-            lcnAddr
-          );
-
-          console.log(
-            'Updating GFC ID:',
-            gfcid
-          );
-
-          /*
-           * Update the Create Client Details form.
-           */
-          this.patchCreateClientDetailsValues({
-            clientName: resolvedClientName,
-            lcnAddr,
-            gfcid
-          });
-
-          this.cdr.detectChanges();
-        },
-
-        error: (error) => {
-
-          console.error(
-            'Error fetching client details:',
-            error
-          );
-        }
-      });
-
-  this.createClientDetailsLookupSubscription =
-    lookupSubscription;
+  /*
+   * Fetch the complete Client Details using CLIENT ID.
+   *
+   * This is the important change.
+   * Do not use clientName as the primary lookup when
+   * clientId is available.
+   */
+  this.loadCreateClientDetailsFromSearch(
+    clientName,
+    selectedClientId
+  );
 }
