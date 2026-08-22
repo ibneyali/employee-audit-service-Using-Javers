@@ -1,106 +1,155 @@
-I need you to investigate and fix an issue in the Clearing System Create New flow.
+I have reverted/stashed all previous changes related to the Clearing System duplicate-client-name/autopopulation issue.
 
-Requirement:
-- The Client Name typeahead dropdown can contain duplicate client names.
-- Duplicate client names are valid and must NOT be removed/deduplicated.
-- Each option is uniquely identified by LCN/ADDR.
-- When the user selects a specific Client Name + LCN/ADDR option, the selected client's details must be correctly auto-populated:
-  - LCN/ADDR
-  - GFC ID
-  - and the correct client identifier (clntRoleId/clientId as required by the existing create payload flow).
-- The selected duplicate client must remain distinguishable by its LCN/ADDR.
+IMPORTANT:
+Start from the current clean code. Do NOT try to restore, reuse, or recreate the previous cache-based solution.
 
-Important:
-- Do NOT modify the common library.
-- Do NOT modify shared.module.ts.
-- Do NOT modify the common form-group/typeahead component.
-- Make changes only in the Clearing System feature files under:
-  src/screens/clearing-system/
-- Preserve the existing create payload and existing distribution-account functionality.
-- Do not fix this by matching only clientName, because duplicate client names are valid.
+I want to implement this in a simpler way, following the existing Standard Payments implementation/pattern in this application.
 
-Current implementation:
+REQUIREMENT:
 
-In clearing-system-create-mapper.ts, buildClientDetailsFields() accepts:
+In the Clearing System -> Create New -> Client Details section:
 
-buildClientDetailsFields(
-  clientNameOptionsGetter: () => any[],
-  onClientSelect?: ClientSelectHandler
-)
+1. Client Name is a typeahead/dropdown.
+2. Duplicate client names are valid.
+3. Each dropdown option must represent the correct client.
+4. When the user selects a Client Name option, immediately call a NEW backend API using the selected client's `clientId`.
+5. The API returns the client details required for the form, including:
+   - `lcnAddr`
+   - `gfcId`
+   - and any other existing fields required by the current create flow.
+6. After the API response is received, immediately populate:
+   - LCN/ADDR field with `lcnAddr`
+   - GFC ID field with `gfcId`
+7. Do NOT get LCN/ADDR or GFC ID from any frontend cache.
+8. Do NOT match the selected client by `clientName`, because duplicate client names are valid.
+9. The selected client's `clientId` must be the identifier used to call the new API.
+10. Keep the existing create payload behavior intact.
 
-The Client Name field currently contains:
+NEW API:
 
-controlType: 'typeahead',
-options: clientNameOptionsGetter,
+The API is already available:
 
-and an onSelect callback similar to:
+GET
 
-onSelect: (selectedValue: unknown) => {
-  console.log('CLIENT TYPEAHEAD SELECTED VALUE:', selectedValue);
-  onClientSelect?.(selectedValue);
+`/api/v1/clearing-systems/{clientId}/client-info`
+
+Example response:
+
+{
+  "clientId": "537745",
+  "clientName": "ABBY MARCOS SHINN",
+  "lcnAddr": "5011351/001",
+  "gfcId": "5011351/001"
 }
 
-In clearing-system.component.ts, renderCreatePanel() calls generateCreatePanelForms() and currently passes:
+Use the actual API response/model from the current project if the exact field names differ.
 
-undefined // onClientSelect
+IMPORTANT IMPLEMENTATION GUIDANCE:
 
-This means the onSelect callback may not be connected to the component's existing auto-population flow.
+Follow the same implementation pattern already used by the Standard Payments client-name typeahead.
 
-The component already has existing logic/methods including:
-- loadCreateClientDetailsFromSearch(...)
-- resolveCreateClientDetailsRow(...)
-- resolveSelectedOptionIdentifier(...)
-- clientSearchOptions
-- createClientDetailsAutoFillCache
-- patchCreateClientDetailsValues(...)
-- wireClientNameCascade()
-- buildCreatePayload()/create payload logic
+First search the project for the Standard Payments implementation of:
 
-There is also existing logic that searches by LCN/ADDR first and then identifier. Duplicate client names must never be resolved by clientName alone.
+- client-name typeahead
+- selection/change event
+- obtaining the selected client's ID
+- calling an API after client selection
+- patching/populating dependent fields
 
-Please do the following:
+Use that as the reference implementation instead of inventing a new pattern.
 
-1. Trace the complete flow from:
-   Client Name typeahead selection
-   -> form-group/typeahead onSelect
-   -> buildClientDetailsFields()
-   -> generateCreatePanelForms()
-   -> renderCreatePanel()
-   -> existing component auto-population method
-   -> patchCreateClientDetailsValues()
-   -> create payload.
+TRACE THE EXISTING CLEARING SYSTEM FLOW:
 
-2. Identify exactly why selecting a Client Name currently does not trigger the expected auto-population.
+Please inspect these files/classes before making changes:
 
-3. Determine what the selectedValue actually contains at runtime based on the existing typeahead implementation and option structure.
+- clearing-system.component.ts
+- clearing-system-create-mapper.ts
+- clearing-system.service.ts
+- clearing-system-request.model.ts
+- the existing Standard Payments component/service/mapper where client-name selection and dependent-field population are already implemented.
 
-4. Check whether the current option object:
-   {
-     value: lcnAddr || clientName,
-     clientName,
-     lcnAddr
-   }
-   contains enough information to identify the correct client.
+Also inspect the existing `clientSearchOptions` / client dropdown API response to determine where `clientId` is currently available.
 
-5. If additional identifier fields are required, add them to the option object from the existing clientSearchOptions data, preferably without changing the common library.
+The dropdown option must retain the `clientId`.
 
-6. Connect the onClientSelect callback to the existing component method instead of creating duplicate auto-population logic.
+For example, if the existing client object contains:
 
-7. Ensure the selected client is resolved in this order:
-   a. LCN/ADDR
-   b. unique client identifier such as clntRoleId/clientId if available
-   c. NEVER clientName alone when duplicate names exist.
+{
+  clientId,
+  clientName,
+  clntRoleId,
+  lcnAddr,
+  gfcId
+}
 
-8. Preserve the existing buildCreatePayload() behavior and ensure the correct clntRoleId is still sent in the create request.
+do NOT reduce the option to only:
 
-9. Do not introduce unnecessary changes to unrelated files.
+{
+  value,
+  clientName,
+  lcnAddr
+}
 
-10. Before changing code, explain:
-   - the root cause
-   - which existing method should be reused
-   - which exact file(s) need modification
-   - why the change will correctly support duplicate client names.
+Instead preserve the identifier needed for the API call.
 
-Then provide the minimal exact code changes required, with the old code and new code clearly identified.
+EXPECTED FLOW:
 
-Also check TypeScript types and make sure there are no compile errors.
+Client Name dropdown
+        ↓
+User selects a client
+        ↓
+Get selected option/clientId
+        ↓
+Call NEW client-info API using clientId
+        ↓
+Receive lcnAddr + gfcId
+        ↓
+Patch Client Details form
+        ↓
+LCN/ADDR = response.lcnAddr
+GFC ID   = response.gfcId
+
+IMPORTANT:
+
+Do NOT modify the common library.
+Do NOT modify shared.module.ts.
+Do NOT modify the common form-group/typeahead component.
+Do NOT modify the common Standard Payments implementation.
+
+Only modify the Clearing System feature files and service/model files that are required.
+
+Do NOT introduce:
+- client details cache
+- resolveCreateClientDetailsRow()
+- resolveSelectedOptionIdentifier()
+- matching by clientName
+- duplicate lookup logic
+- frontend searching through clientSearchOptions after selection
+
+The API should be the source of truth for LCN/ADDR and GFC ID.
+
+Also ensure that the existing create payload still receives the correct client identifier (`clientId`/`clntRoleId`, whichever the backend currently expects).
+
+Before modifying code, explain:
+
+1. How Standard Payments handles client selection.
+2. Where the selected `clientId` comes from.
+3. Where the new Clearing System API should be called.
+4. Which existing form patch/update mechanism should be reused.
+5. Which exact files need to change.
+
+Then implement the minimum required changes.
+
+After implementation, verify:
+- TypeScript compilation
+- no unused imports
+- no references to the old cache-based solution
+- duplicate client names still appear in the dropdown
+- selecting client A calls the API with client A's clientId
+- selecting client B with the same name but a different clientId calls the API with client B's clientId
+- LCN/ADDR and GFC ID are populated from the API response
+- existing create payload is not broken.
+
+Do not make unrelated refactoring.
+
+If you need check how standard payment implemented it you can refer it.
