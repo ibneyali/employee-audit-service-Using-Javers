@@ -1,60 +1,63 @@
-private applyCreateClientSelection(
-  selectedValue: unknown
-): void {
+fetchClientData(
+  formData: any
+): Observable<ApiResponse<PagedData<ClearingSystemData>>> {
+
+  if (!formData || typeof formData !== 'object') {
+    return throwError(
+      () => new Error('Invalid form data provided')
+    );
+  }
+
+  let params = new HttpParams();
+
+  if (formData.clientName?.trim()) {
+    params = params.set(
+      'clientName',
+      formData.clientName.trim()
+    );
+  }
 
   if (
-    selectedValue === null ||
-    selectedValue === undefined ||
-    selectedValue === ''
+    formData.clrEntId !== undefined &&
+    formData.clrEntId !== null &&
+    String(formData.clrEntId).trim()
   ) {
-    return;
+    params = params.set(
+      'clrEntId',
+      String(formData.clrEntId).trim()
+    );
   }
 
-  const selectedClientId =
-    this.resolveSelectedClientId(selectedValue);
-
-  this.selectedCreateClientId =
-    selectedClientId;
-
-  console.log(
-    'Selected client ID:',
-    selectedClientId
+  params = params.set(
+    'page',
+    String(formData.page ?? 0)
   );
 
-  if (selectedClientId == null) {
-    console.warn(
-      'Unable to resolve selected client ID:',
-      selectedValue
+  params = params.set(
+    'size',
+    String(formData.size ?? 10)
+  );
+
+  if (formData.sort) {
+    params = params.set(
+      'sort',
+      formData.sort
     );
-    return;
   }
 
-  const selectedClient =
-    this.findCreateClientBySelectedValue(
-      selectedValue
+  return this.http
+    .get<ApiResponse<PagedData<ClearingSystemData>>>(
+      `${this.apiUrl}/client-details`,
+      { params }
+    )
+    .pipe(
+      catchError(error => {
+        console.error(
+          'Error fetching client details:',
+          error
+        );
+
+        return throwError(() => error);
+      })
     );
-
-  console.log(
-    'Selected client:',
-    selectedClient
-  );
-
-  /*
-   * If the selected client is already available in the
-   * cached options, we can get its name immediately.
-   */
-  const clientName =
-    selectedClient?.clientName?.trim() ?? '';
-
-  /*
-   * Fetch the complete Client Details using CLIENT ID.
-   *
-   * This is the important change.
-   * Do not use clientName as the primary lookup when
-   * clientId is available.
-   */
-  this.loadCreateClientDetailsFromSearch(
-    clientName,
-    selectedClientId
-  );
 }
