@@ -1,63 +1,23 @@
-fetchClientData(
-  formData: any
-): Observable<ApiResponse<PagedData<ClearingSystemData>>> {
+Sure. I’ve converted the handwritten notes into clear, grammatically correct text while keeping the original technical meaning.
 
-  if (!formData || typeof formData !== 'object') {
-    return throwError(
-      () => new Error('Invalid form data provided')
-    );
-  }
+1. Kafka / Module
 
-  let params = new HttpParams();
+Create a new module name, and then put it in that module. Once it is Kafka-enabled, put the response back into the new Kafka topic that we have told.
 
-  if (formData.clientName?.trim()) {
-    params = params.set(
-      'clientName',
-      formData.clientName.trim()
-    );
-  }
+2. SWIFT Screening Flow
 
-  if (
-    formData.clrEntId !== undefined &&
-    formData.clrEntId !== null &&
-    String(formData.clrEntId).trim()
-  ) {
-    params = params.set(
-      'clrEntId',
-      String(formData.clrEntId).trim()
-    );
-  }
+Currently, we are getting SWIFT screening, so we can add a new name, like Kafka SWIFT Screening or something similar, as the flow name in the model. Whenever we are sending, we use the new flow.
 
-  params = params.set(
-    'page',
-    String(formData.page ?? 0)
-  );
+3. MT542 / Kafka Producer
 
-  params = params.set(
-    'size',
-    String(formData.size ?? 10)
-  );
+It will start processing the SWIFT generation for MT542, but as of now, we are getting some errors. Something like the message type is not able to get because 542 is not embedded.
 
-  if (formData.sort) {
-    params = params.set(
-      'sort',
-      formData.sort
-    );
-  }
+Kafka Producer Client to publish the message.
 
-  return this.http
-    .get<ApiResponse<PagedData<ClearingSystemData>>>(
-      `${this.apiUrl}/client-details`,
-      { params }
-    )
-    .pipe(
-      catchError(error => {
-        console.error(
-          'Error fetching client details:',
-          error
-        );
+4. Producer and Consumer
 
-        return throwError(() => error);
-      })
-    );
-}
+You created the producer and consumer thing because the workflow will come, and you have to publish again to the workflow. So, that’s the thing.
+
+5. Kafka Topic / CITI Screening
+
+This is the important thing that we have to create — where the Kafka is enabled, we only put it into the Kafka topic that we have in the CITI screening.
