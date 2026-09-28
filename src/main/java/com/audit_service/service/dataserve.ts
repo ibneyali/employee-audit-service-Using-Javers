@@ -21,3 +21,22 @@ You created the producer and consumer thing because the workflow will come, and 
 5. Kafka Topic / CITI Screening
 
 This is the important thing that we have to create — where the Kafka is enabled, we only put it into the Kafka topic that we have in the CITI screening.
+
+Page 1
+Jignesh said initially, if the Kafka is enabled, then the older flow should not work because that’s how the implementation is there as per the Devim VIP.
+
+But it is the wrong approach.
+
+So now check if there is any Kafka-side screening. Is that what we are going to hardcode anything? Because there are multiple REST API calls, whether the ATIS team or ONEAT team, they are actually calling the Swift workflow for generating the message.
+
+Whenever they are calling the REST API, they are hardcoding their own module name, like PPA, CUSTODY, IPA, etc., something like that.
+
+So we are doing something like in the Kafka, we need to put whenever we are selling it out.
+
+Page 2
+
+Because from the Swift workflow side, there is no such contract in there, so that confirmation I need. Or else we can do it if the Kafka is enabled, just we can put the condition outside, then we can proceed further.
+
+So if that we can do, still if that is still going to affect the older flow or not.
+
+So if Kafka is enabled, then the older flow should not be affected due to the new flow. That we need to check.
