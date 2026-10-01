@@ -1,42 +1,66 @@
-Sure. I’ve converted the handwritten notes into clear, grammatically correct text while keeping the original technical meaning.
+Please investigate and fix the issues visible in the Search settlement-instruction Results data table.
 
-1. Kafka / Module
+Issues observed:
+1. The table header and table data rows are not properly aligned. There is a visible gap/spacing between the header columns and the corresponding data columns. The header and body columns should line up exactly with no unexpected blank space or horizontal offset.
+2. The Search Results tab counts are showing:
+   - All: 0
+   - Repair: 0
+   - Authorise: 0
+   However, multiple records are actually displayed in the data table. The counts must reflect the actual records returned/displayed.
+3. Please investigate the root cause rather than applying only a CSS workaround.
 
-Create a new module name, and then put it in that module. Once it is Kafka-enabled, put the response back into the new Kafka topic that we have told.
+Please inspect the complete frontend flow for this screen:
+- Search Results component
+- DataTable/table configuration
+- Column definitions
+- Table header and row rendering
+- Search API response mapping
+- Pagination logic
+- Search result state
+- All/Repair/Authorise tab count calculation
+- Loading/empty-state handling
 
-2. SWIFT Screening Flow
+For the table alignment issue:
+- Verify that the number and order of header columns exactly match the number and order of data cells.
+- Check whether any column is missing from either the header or row.
+- Check fixed widths, percentage widths, min-width/max-width, flex properties, padding and margins.
+- Check whether horizontal scrolling or a separate header/body container is causing the misalignment.
+- Ensure the header and body use the same column-width configuration.
+- Do not simply hide the gap with arbitrary margins or positioning.
+- Preserve the existing responsive behavior.
 
-Currently, we are getting SWIFT screening, so we can add a new name, like Kafka SWIFT Screening or something similar, as the flow name in the model. Whenever we are sending, we use the new flow.
+For the count issue:
+- Trace where All, Repair and Authorise counts are calculated.
+- Compare the count source with the actual API response and rendered records.
+- Ensure counts are updated whenever a new search is performed.
+- Ensure counts are not initialized to 0 and left unchanged because of incorrect state mapping.
+- Verify the status/type field used for Repair and Authorise filtering.
+- If pagination is used, determine whether the UI should display total matching records or only the current page records based on the existing application behavior.
+- Do not hardcode the counts.
+- Make sure the counts remain correct after search, clear search, filter changes, pagination and tab changes.
 
-3. MT542 / Kafka Producer
+Important:
+- First identify the root cause and explain it.
+- Make the smallest required code changes.
+- Do not modify unrelated functionality.
+- Do not change API contracts unless absolutely necessary.
+- Reuse the existing project patterns and components.
+- Check for TypeScript/JavaScript errors after the change.
+- Add or update unit/component tests for:
+  1. Correct table header/data alignment.
+  2. Correct All count.
+  3. Correct Repair count.
+  4. Correct Authorise count.
+  5. Search returning zero records.
+  6. Search returning multiple records.
+  7. Clearing the search and restoring the correct counts.
 
-It will start processing the SWIFT generation for MT542, but as of now, we are getting some errors. Something like the message type is not able to get because 542 is not embedded.
+Before making changes, show me:
+1. Which files are responsible for the table.
+2. Where the table columns are defined.
+3. Where the Search Results counts are calculated.
+4. The root cause of each issue.
 
-Kafka Producer Client to publish the message.
+Then implement the fix and provide a concise summary of the changes.
 
-4. Producer and Consumer
-
-You created the producer and consumer thing because the workflow will come, and you have to publish again to the workflow. So, that’s the thing.
-
-5. Kafka Topic / CITI Screening
-
-This is the important thing that we have to create — where the Kafka is enabled, we only put it into the Kafka topic that we have in the CITI screening.
-
-Page 1
-Jignesh said initially, if the Kafka is enabled, then the older flow should not work because that’s how the implementation is there as per the Devim VIP.
-
-But it is the wrong approach.
-
-So now check if there is any Kafka-side screening. Is that what we are going to hardcode anything? Because there are multiple REST API calls, whether the ATIS team or ONEAT team, they are actually calling the Swift workflow for generating the message.
-
-Whenever they are calling the REST API, they are hardcoding their own module name, like PPA, CUSTODY, IPA, etc., something like that.
-
-So we are doing something like in the Kafka, we need to put whenever we are selling it out.
-
-Page 2
-
-Because from the Swift workflow side, there is no such contract in there, so that confirmation I need. Or else we can do it if the Kafka is enabled, just we can put the condition outside, then we can proceed further.
-
-So if that we can do, still if that is still going to affect the older flow or not.
-
-So if Kafka is enabled, then the older flow should not be affected due to the new flow. That we need to check.
+don't fix test cases
