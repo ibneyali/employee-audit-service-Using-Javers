@@ -1,23 +1,56 @@
+Analyze and fix the filtering and pagination issue in the Settlement screen.
 
-"AA", "AB", "AC", "AD", "AE", "AF", "AG", "AH", "AI", "AL", "AM", "AN", "AO", "AP", "AQ",
-"AR", "AS", "AT", "AU", "AV", "AW", "AX", "AZ", "BA", "BB", "BD", "BE", "BF", "BG", "BH",
-"BI", "BJ", "BL", "BM", "BN", "BO", "BP", "BQ", "BR", "BS", "BT", "BV", "BW", "BY", "BZ",
-"CA", "CB", "CC", "CD", "CF", "CG", "CH", "CI", "CK", "CL", "CM", "CN", "CO", "CR", "CS",
-"CT", "CU", "CV", "CW", "CX", "CY", "CZ", "DA", "DB", "DD", "DE", "DJ", "DK", "DM", "DO",
-"DS", "DT", "DU", "DZ", "EC", "EE", "EG", "EH", "EL", "ER", "ES", "ET", "EU", "FE", "FI",
-"FJ", "FK", "FM", "FO", "FR", "FT", "GA", "GB", "GD", "GE", "GF", "GG", "GH", "GI", "GL",
-"GM", "GN", "GP", "GQ", "GR", "GS", "GT", "GU", "GW", "GY", "HK", "HL", "HM", "HN", "HR",
-"HS", "HT", "HU", "ID", "IE", "IL", "IM", "IN", "IO", "IP", "IQ", "IR", "IS", "IT", "IX",
-"JA", "JD", "JE", "JM", "JO", "JP", "KE", "KG", "KH", "KI", "KM", "KN", "KP", "KR", "KW",
-"KY", "KZ", "LA", "LB", "LC", "LE", "LI", "LK", "LO", "LR", "LS", "LT", "LU", "LV", "LY",
-"MA", "MC", "MD", "ME", "MF", "MG", "MH", "MK", "ML", "MM", "MN", "MO", "MP", "MQ", "MR",
-"MS", "MT", "MU", "MV", "MW", "MX", "MY", "MZ", "NA", "NC", "NE", "NF", "NG", "NI", "NJ",
-"NK", "NL", "NN", "NO", "NP", "NR", "NU", "NZ", "OC", "OH", "OM", "PA", "PE", "PF", "PG",
-"PH", "PK", "PL", "PM", "PN", "PP", "PR", "PS", "PT", "PW", "PY", "QA", "QT", "QX", "RA",
-"RB", "RE", "RK", "RM", "RO", "RR", "RS", "RT", "RU", "RW", "SA", "SB", "SC", "SD", "SE",
-"SG", "SH", "SI", "SJ", "SK", "SL", "SM", "SN", "SO", "SP", "SR", "SS", "ST", "SV", "SX",
-"SY", "SZ", "TA", "TC", "TD", "TE", "TF", "TG", "TH", "TI", "TJ", "TK", "TL", "TM", "TN",
-"TO", "TP", "TQ", "TR", "TT", "TV", "TW", "TZ", "UA", "UG", "UM", "US", "UY", "UZ", "VA",
-"VB", "VC", "VE", "VG", "VI", "VK", "VN", "VU", "WF", "WS", "XB", "XD", "XI", "XL", "XP",
-"XS", "XT", "XX", "XZ", "YA", "YB", "YC", "YE", "YT", "YY", "YZ", "ZA", "ZE", "ZM", "ZW",
-"ZZ"
+**Issue Description:**
+
+In the Settlement screen, the `Old Still Instruct Status` column has a filter option called `Empty`.
+
+Currently, the grid displays 1,359,697 total records with 100 records per page.
+
+When selecting the `Empty` filter and applying it, the grid should display only records where `Old Still Instruct Status` is NULL, empty, or blank, depending on the existing field-handling requirements.
+
+**Expected Behavior:**
+
+1. When the user selects `Empty` from the `Old Still Instruct Status` column filter, only matching records should be displayed.
+2. The total record count must be recalculated based on the filtered results.
+3. Pagination must reflect the filtered record count.
+4. If fewer than 100 records match the filter, display only those matching records.
+5. If more than 100 records match, display 100 records per page.
+6. The page size must remain 100 unless the user explicitly changes it.
+7. The Select All checkbox must select only the records displayed on the current page (100 records), not all 1,359,697 records.
+8. Changing or clearing the filter must refresh the grid data, total count, and pagination correctly.
+9. Ensure that the Empty filter works correctly for NULL, empty strings, and whitespace-only values according to the application's existing data conventions.
+
+**Technical Investigation:**
+
+- Identify the Settlement screen component and its grid implementation.
+- Trace the column filtering logic from React UI to backend API and database query.
+- Verify whether the Empty filter condition is correctly passed to the backend.
+- Check whether the backend query correctly handles NULL and empty values.
+- Ensure filtering is performed before pagination.
+- Ensure the total count query uses exactly the same filter conditions as the data query.
+- Check whether pagination or Select All state is incorrectly overriding the applied filter.
+- Follow existing project architecture, coding standards, API contracts, and reusable components.
+
+**Important:**
+Do not implement a frontend-only filtering workaround if the grid uses server-side pagination.
+
+First identify the root cause, then implement the appropriate fix in the frontend and/or backend.
+
+Do not modify unrelated functionality.
+
+Add or update unit and integration tests covering:
+- Empty filter with matching records.
+- Empty filter with zero matching records.
+- Empty filter with fewer than 100 records.
+- Empty filter with more than 100 records.
+- Pagination after applying the filter.
+- Clearing the filter.
+- Select All behavior after filtering.
+
+Finally, provide:
+1. Root cause of the issue.
+2. Files/classes modified.
+3. Code changes implemented.
+4. Tests executed and their results.
+
+please fix using minimul changes
